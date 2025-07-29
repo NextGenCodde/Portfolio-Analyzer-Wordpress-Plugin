@@ -118,6 +118,9 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
 
     ob_start();
     ?>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* Reset and Base Styles */
         .ai-portfolio-app * {
@@ -127,17 +130,17 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
         }
 
         .ai-portfolio-app {
-            --primary-color: <?php echo esc_attr($atts['theme']); ?>;
-            --primary-dark: #059669;
-            --primary-light: #34d399;
+            --primary-color: #007aff;
+            --primary-dark: #005bb5;
+            --primary-light: #66b2ff;
             --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
-            --bg-tertiary: #f1f5f9;
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-            --text-muted: #9ca3af;
-            --border-light: #e5e7eb;
-            --border-medium: #d1d5db;
+            --bg-secondary: #f7f7f7;
+            --bg-tertiary: #e5e5ea;
+            --text-primary: #000000;
+            --text-secondary: #3c3c43;
+            --text-muted: #8e8e93;
+            --border-light: #d1d1d6;
+            --border-medium: #c7c7cc;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
@@ -148,7 +151,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
             --radius-xl: 1rem;
             --radius-2xl: 1.5rem;
             --font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             position: fixed;
             top: 0;
             left: 0;
@@ -952,11 +955,11 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
 
                 <div class="messages-container" id="messagesContainer">
                     <div class="stock-inputs" style="padding: 2rem; max-width: 800px; margin: 0 auto;">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-                            <input type="text" id="stockName" placeholder="Stock Name (e.g., HUBC)" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
-                            <input type="text" id="exchange" placeholder="Exchange (e.g., PSX)" value="Pakistan Stock Exchange" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
-                            <input type="text" id="chartType" placeholder="Chart Type (e.g., Daily)" value="DAILY" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
-                            <input type="date" id="date" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; align-items: center;">
+                            <input type="text" id="stockName" placeholder="Stock Name (e.g., HUBC)" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-medium); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.875rem;">
+                            <input type="text" id="exchange" placeholder="Exchange (e.g., PSX)" value="Pakistan Stock Exchange" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-medium); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.875rem;">
+                            <input type="text" id="chartType" placeholder="Chart Type (e.g., Daily)" value="DAILY" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-medium); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.875rem;">
+                            <input type="date" id="date" style="padding: 0.6rem; border-radius: 0.5rem; border: 1px solid var(--border-medium); background: var(--bg-tertiary); color: var(--text-primary); font-size: 0.875rem;">
                         </div>
                     </div>
                     <div class="welcome-screen" id="welcomeScreen">
@@ -1098,7 +1101,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                 bindEvents() {
                     // Send message events
                     this.sendBtn.addEventListener('click', () => this.sendMessage());
-                    this.messageInput.addEventListener('keypress', (e) => {
+                    this.messageInput.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             this.sendMessage();
@@ -1665,9 +1668,17 @@ function ai_pa_analyze_portfolio(WP_REST_Request $request) {
 
     $user_content = $msg;
     if ($file_data) {
-        // This is a simplified handling. In a real-world scenario, you'd
-        // save the file and provide a URL or process its content.
-        $user_content .= "\n\n[User has attached a file. You cannot see the file, but you can ask the user about its content.]";
+        $file_parts = explode(',', $file_data);
+        $file_type = $file_parts[0];
+        $file_content = base64_decode($file_parts[1]);
+
+        if (strpos($file_type, 'image') !== false) {
+            $user_content .= "\n\n[User has attached an image. Describe the image and its relevance to the stock market.]";
+            // In a real implementation, you would use a multimodal model to analyze the image.
+            // For now, we will just acknowledge the image.
+        } else {
+            $user_content .= "\n\n[User has attached a file with the following content:]\n" . $file_content;
+        }
     }
 
     $body = [
@@ -1675,7 +1686,7 @@ function ai_pa_analyze_portfolio(WP_REST_Request $request) {
         "messages" => [
             [
                 "role" => "system",
-                "content" => "Give me a human-style swing trading technical analysis report as a professional swing trader for [STOCK] listed on [Pakistan Stock Exchange] using the [DAILY] chart as of [DATE]. Assume TradingView is the charting platform. Include clear insights on:\n\n- Trend structure (short, medium, long term)\n- Key support and resistance zones\n- Candlestick behavior and price action\n- Chart patterns forming or confirming\n- Volume behavior and accumulation/distribution\n- Potential swing trade setups with entry, stop loss, and targets\n- Risk zones or invalidation points\n- Trader-style summary and outlook\n\nOnly use ₨ (PKR) as the currency symbol, not ₹ (INR)."
+                "content" => "You are a highly experienced stock market analyst. Your responses should be concise, to the point, and directly related to the user's query. Provide clear, actionable insights. When a file is attached, analyze its content and provide a summary or analysis as requested. For swing trading reports, follow the user's specified format. Always use the currency symbol ₨ (PKR)."
             ],
             ["role" => "user", "content" => $user_content]
         ],
