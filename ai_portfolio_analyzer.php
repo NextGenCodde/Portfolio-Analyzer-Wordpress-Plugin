@@ -31,7 +31,7 @@ function ai_portfolio_analyzer_admin_menu() {
         'ai-portfolio-analyzer',
         'ai_portfolio_analyzer_settings_page'
     );
-    
+
     add_menu_page(
         'AI Portfolio Analyzer',
         'Portfolio AI',
@@ -50,7 +50,7 @@ function ai_portfolio_analyzer_settings_page() {
         update_option('ai_pa_theme_color', sanitize_text_field($_POST['ai_pa_theme_color']));
         echo '<div class="updated"><p>Settings Saved Successfully!</p></div>';
     }
-    
+
     $api_key = get_option('ai_pa_api_key', '');
     $api_url = get_option('ai_pa_api_url', 'https://api.novita.ai/v3/openai');
     $theme_color = get_option('ai_pa_theme_color', '#10b981');
@@ -90,7 +90,7 @@ function ai_portfolio_analyzer_settings_page() {
             </table>
             <?php submit_button('Save Settings'); ?>
         </form>
-        
+
         <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
             <h3>📋 Usage Instructions</h3>
             <p>Use the shortcode <code>[ai_portfolio_analyzer]</code> on any page or post to display the portfolio analyzer.</p>
@@ -115,7 +115,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
         'height' => '100vh',
         'theme' => get_option('ai_pa_theme_color', '#10b981')
     ], $atts);
-    
+
     ob_start();
     ?>
     <style>
@@ -160,17 +160,15 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
         }
 
         /* Dark Mode Support */
-        @media (prefers-color-scheme: dark) {
-            .ai-portfolio-app {
-                --bg-primary: #1f2937;
-                --bg-secondary: #111827;
-                --bg-tertiary: #0f172a;
-                --text-primary: #f9fafb;
-                --text-secondary: #d1d5db;
-                --text-muted: #9ca3af;
-                --border-light: #374151;
-                --border-medium: #4b5563;
-            }
+        .ai-portfolio-app.dark {
+            --bg-primary: #1f2937;
+            --bg-secondary: #111827;
+            --bg-tertiary: #0f172a;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --text-muted: #9ca3af;
+            --border-light: #374151;
+            --border-medium: #4b5563;
         }
 
         /* Main Layout */
@@ -945,6 +943,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                         <div class="status-indicator"></div>
                     </div>
                     <div class="header-actions">
+                        <button class="header-btn" id="themeToggleBtn" title="Toggle Theme">🌙</button>
                         <button class="header-btn" id="exportBtn" title="Export Analysis">📄</button>
                         <button class="header-btn" id="settingsBtn" title="Settings">⚙️</button>
                         <button class="header-btn" id="fullscreenBtn" title="Fullscreen">⛶</button>
@@ -952,11 +951,19 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                 </div>
 
                 <div class="messages-container" id="messagesContainer">
+                    <div class="stock-inputs" style="padding: 2rem; max-width: 800px; margin: 0 auto;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                            <input type="text" id="stockName" placeholder="Stock Name (e.g., HUBC)" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
+                            <input type="text" id="exchange" placeholder="Exchange (e.g., PSX)" value="Pakistan Stock Exchange" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
+                            <input type="text" id="chartType" placeholder="Chart Type (e.g., Daily)" value="DAILY" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
+                            <input type="date" id="date" style="padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary);">
+                        </div>
+                    </div>
                     <div class="welcome-screen" id="welcomeScreen">
                         <div class="welcome-icon">🚀</div>
                         <h1 class="welcome-title">PSX Portfolio Analyzer</h1>
                         <p class="welcome-subtitle">Your AI-powered assistant for Pakistan Stock Exchange analysis, portfolio optimization, and market insights</p>
-                        
+
                         <div class="welcome-features">
                             <div class="feature-card">
                                 <div class="feature-icon">📊</div>
@@ -1021,12 +1028,13 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                             </div>
                         </div>
                         <div class="input-wrapper">
-                            <textarea 
-                                class="message-input" 
-                                id="messageInput" 
+                            <textarea
+                                class="message-input"
+                                id="messageInput"
                                 placeholder="Ask about your PSX portfolio, stocks, or market analysis... (Use / for commands)"
                                 rows="1"></textarea>
                             <div class="input-actions">
+                                <input type="file" id="fileInput" style="display: none;" accept="image/*,application/pdf,.txt,.csv,.json">
                                 <button class="attachment-btn" id="attachmentBtn" title="Attach file">📎</button>
                                 <button class="voice-btn" id="voiceBtn" title="Voice input">🎤</button>
                                 <button class="send-btn" id="sendBtn" title="Send message">➤</button>
@@ -1048,7 +1056,8 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                 constructor() {
                     this.initializeElements();
                     this.bindEvents();
-                    this.conversationHistory = [];
+                    this.chats = this.loadChats();
+                    this.activeChatId = null;
                     this.sessionStats = {
                         queries: 0,
                         responseTimes: [],
@@ -1063,9 +1072,12 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                         '/sectors': 'Compare and analyze different PSX sectors'
                     };
                     this.selectedCommandIndex = -1;
+                    this.renderChatHistory();
+                    this.startNewChat();
                 }
 
                 initializeElements() {
+                    this.appContainer = document.querySelector('.ai-portfolio-app');
                     this.messageInput = document.getElementById('messageInput');
                     this.sendBtn = document.getElementById('sendBtn');
                     this.messagesContainer = document.getElementById('messagesContainer');
@@ -1078,6 +1090,9 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                     this.newChatBtn = document.getElementById('newChatBtn');
                     this.exportBtn = document.getElementById('exportBtn');
                     this.fullscreenBtn = document.getElementById('fullscreenBtn');
+                    this.themeToggleBtn = document.getElementById('themeToggleBtn');
+                    this.attachmentBtn = document.getElementById('attachmentBtn');
+                    this.fileInput = document.getElementById('fileInput');
                 }
 
                 bindEvents() {
@@ -1133,17 +1148,45 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                     // Fullscreen toggle
                     this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
 
+                    // Theme toggle
+                    this.themeToggleBtn.addEventListener('click', () => this.toggleTheme());
+
                     // Close suggestions when clicking outside
                     document.addEventListener('click', (e) => {
                         if (!this.commandSuggestions.contains(e.target) && e.target !== this.messageInput) {
                             this.hideCommandSuggestions();
                         }
                     });
+
+                    // Apply initial theme
+                    this.applyInitialTheme();
+
+                    // Attachment button
+                    this.attachmentBtn.addEventListener('click', () => this.fileInput.click());
+                    this.fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
                 }
 
-                async sendMessage() {
-                    const message = this.messageInput.value.trim();
-                    if (!message) return;
+                async sendMessage(message, fileData = null) {
+                    const stockName = document.getElementById('stockName').value;
+                    const exchange = document.getElementById('exchange').value;
+                    const chartType = document.getElementById('chartType').value;
+                    const date = document.getElementById('date').value;
+
+                    let textMessage = message || this.messageInput.value.trim();
+                    if (!textMessage && !fileData) return;
+
+                    if (stockName) {
+                        textMessage = textMessage.replace(/\[STOCK\]/g, stockName);
+                    }
+                    if (exchange) {
+                        textMessage = textMessage.replace(/\[Pakistan Stock Exchange\]/g, exchange);
+                    }
+                    if (chartType) {
+                        textMessage = textMessage.replace(/\[DAILY\]/g, chartType);
+                    }
+                    if (date) {
+                        textMessage = textMessage.replace(/\[DATE\]/g, date);
+                    }
 
                     // Hide welcome screen
                     if (this.welcomeScreen) {
@@ -1151,7 +1194,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                     }
 
                     // Add user message
-                    this.addMessage(message, 'user');
+                    this.addMessage(textMessage, 'user');
                     this.messageInput.value = '';
                     this.autoResizeTextarea();
                     this.hideCommandSuggestions();
@@ -1163,13 +1206,18 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                     const startTime = Date.now();
 
                     try {
+                        const body = { message: textMessage };
+                        if (fileData) {
+                            body.file = fileData;
+                        }
+
                         const response = await fetch('<?php echo esc_url(rest_url('ai-pa/v1/analyze')); ?>', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                                 'X-WP-Nonce': '<?php echo wp_create_nonce('wp_rest'); ?>'
                             },
-                            body: JSON.stringify({ message: message })
+                            body: JSON.stringify(body)
                         });
 
                         const data = await response.json();
@@ -1183,26 +1231,21 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                         this.showTyping(false);
                         this.addMessage(data.reply || 'Sorry, I encountered an error. Please try again.', 'ai');
 
-                        // Store conversation
-                        this.conversationHistory.push({
-                            user: message,
-                            ai: data.reply,
-                            timestamp: new Date().toISOString()
-                        });
-
                     } catch (error) {
                         this.showTyping(false);
                         this.addMessage('Sorry, I encountered a connection error. Please check your internet and try again.', 'ai');
                         console.error('Error:', error);
                     } finally {
                         this.sendBtn.disabled = false;
+                        this.saveChats();
+                        this.renderChatHistory();
                     }
                 }
 
-                addMessage(content, type) {
+                addMessage(content, type, save = true) {
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `message ${type}`;
-                    
+
                     const now = new Date();
                     const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
@@ -1231,6 +1274,17 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
 
                     // Bind action button events
                     this.bindMessageActions(messageDiv);
+
+                    if (save) {
+                        const chat = this.chats[this.activeChatId];
+                        if (chat) {
+                            chat.messages.push({ content, type });
+                            if (chat.messages.length === 1 && type === 'user') {
+                                chat.title = content.substring(0, 30);
+                            }
+                            chat.timestamp = Date.now();
+                        }
+                    }
                 }
 
                 formatMessage(content) {
@@ -1279,7 +1333,9 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                 }
 
                 scrollToBottom() {
-                    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+                    setTimeout(() => {
+                        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+                    }, 0);
                 }
 
                 autoResizeTextarea() {
@@ -1291,10 +1347,10 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                     const value = this.messageInput.value;
                     if (value.startsWith('/')) {
                         const command = value.toLowerCase();
-                        const matchingCommands = Object.keys(this.commands).filter(cmd => 
+                        const matchingCommands = Object.keys(this.commands).filter(cmd =>
                             cmd.toLowerCase().startsWith(command)
                         );
-                        
+
                         if (matchingCommands.length > 0) {
                             this.showCommandSuggestions(matchingCommands);
                         } else {
@@ -1308,12 +1364,12 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                 showCommandSuggestions(commands) {
                     const items = this.commandSuggestions.querySelectorAll('.command-item');
                     items.forEach(item => item.style.display = 'none');
-                    
+
                     commands.forEach(command => {
                         const item = this.commandSuggestions.querySelector(`[data-command="${command}"]`);
                         if (item) item.style.display = 'block';
                     });
-                    
+
                     this.commandSuggestions.classList.add('active');
                     this.selectedCommandIndex = -1;
                 }
@@ -1367,15 +1423,36 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                 }
 
                 startNewChat() {
-                    this.messagesContainer.innerHTML = '';
-                    this.messagesContainer.appendChild(this.welcomeScreen);
-                    this.welcomeScreen.style.display = 'block';
-                    this.conversationHistory = [];
-                    this.sessionStats = {
-                        queries: 0,
-                        responseTimes: [],
-                        sessionStart: Date.now()
+                    this.activeChatId = `chat_${Date.now()}`;
+                    this.chats[this.activeChatId] = {
+                        id: this.activeChatId,
+                        title: 'New Chat',
+                        messages: [],
+                        timestamp: Date.now()
                     };
+                    this.loadChat(this.activeChatId);
+                    this.renderChatHistory();
+                    this.saveChats();
+                }
+
+                loadChat(chatId) {
+                    if (!this.chats[chatId]) return;
+
+                    this.activeChatId = chatId;
+                    const chat = this.chats[chatId];
+                    this.messagesContainer.innerHTML = '';
+
+                    if (chat.messages.length === 0) {
+                        this.messagesContainer.appendChild(this.welcomeScreen);
+                        this.welcomeScreen.style.display = 'block';
+                    } else {
+                        this.welcomeScreen.style.display = 'none';
+                        chat.messages.forEach(message => {
+                            this.addMessage(message.content, message.type, false);
+                        });
+                    }
+
+                    this.renderChatHistory();
                 }
 
                 exportAnalysis() {
@@ -1387,7 +1464,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                     const exportData = {
                         sessionDate: new Date().toISOString().split('T')[0],
                         totalQueries: this.sessionStats.queries,
-                        averageResponseTime: this.sessionStats.responseTimes.length > 0 ? 
+                        averageResponseTime: this.sessionStats.responseTimes.length > 0 ?
                             (this.sessionStats.responseTimes.reduce((a, b) => a + b) / this.sessionStats.responseTimes.length / 1000).toFixed(2) + 's' : 'N/A',
                         conversation: this.conversationHistory
                     };
@@ -1418,10 +1495,10 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                         const lastUserMessage = Array.from(messages)
                             .reverse()
                             .find(msg => msg.classList.contains('user'));
-                        
+
                         if (lastUserMessage) {
                             const messageText = lastUserMessage.querySelector('.message-body').textContent;
-                            
+
                             // Remove last AI response
                             const lastAiMessage = Array.from(messages)
                                 .reverse()
@@ -1429,7 +1506,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                             if (lastAiMessage) {
                                 lastAiMessage.remove();
                             }
-                            
+
                             // Resend the message
                             this.messageInput.value = messageText;
                             this.sendMessage();
@@ -1453,6 +1530,88 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
                         shareBtn.textContent = '✅ Copied to clipboard';
                         setTimeout(() => shareBtn.textContent = '🔗 Share', 2000);
                     }
+                }
+
+                toggleTheme() {
+                    const isDark = this.appContainer.classList.toggle('dark');
+                    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                    this.themeToggleBtn.textContent = isDark ? '☀️' : '🌙';
+                }
+
+                applyInitialTheme() {
+                    const savedTheme = localStorage.getItem('theme');
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                        this.appContainer.classList.add('dark');
+                        this.themeToggleBtn.textContent = '☀️';
+                    } else {
+                        this.appContainer.classList.remove('dark');
+                        this.themeToggleBtn.textContent = '🌙';
+                    }
+                }
+
+                loadChats() {
+                    const chats = localStorage.getItem('ai_pa_chats');
+                    return chats ? JSON.parse(chats) : {};
+                }
+
+                saveChats() {
+                    localStorage.setItem('ai_pa_chats', JSON.stringify(this.chats));
+                }
+
+                renderChatHistory() {
+                    const chatHistoryContainer = document.getElementById('chatHistory');
+                    chatHistoryContainer.innerHTML = '';
+                    const chats = Object.values(this.chats).sort((a, b) => b.timestamp - a.timestamp);
+
+                    if (chats.length === 0) {
+                        chatHistoryContainer.innerHTML = '<div class="history-item">No recent chats</div>';
+                        return;
+                    }
+
+                    const today = new Date().toLocaleDateString();
+                    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
+
+                    let currentSection = '';
+
+                    chats.forEach(chat => {
+                        const chatDate = new Date(chat.timestamp).toLocaleDateString();
+                        let sectionTitle = 'Older';
+                        if (chatDate === today) {
+                            sectionTitle = 'Today';
+                        } else if (chatDate === yesterday) {
+                            sectionTitle = 'Yesterday';
+                        }
+
+                        if (sectionTitle !== currentSection) {
+                            const sectionDiv = document.createElement('div');
+                            sectionDiv.className = 'history-section';
+                            sectionDiv.innerHTML = `<div class="history-title">${sectionTitle}</div>`;
+                            chatHistoryContainer.appendChild(sectionDiv);
+                            currentSection = sectionTitle;
+                        }
+
+                        const historyItem = document.createElement('div');
+                        historyItem.className = `history-item ${chat.id === this.activeChatId ? 'active' : ''}`;
+                        historyItem.textContent = chat.title;
+                        historyItem.dataset.chatId = chat.id;
+                        historyItem.addEventListener('click', () => {
+                            this.loadChat(chat.id);
+                        });
+                        chatHistoryContainer.querySelector('.history-section:last-child').appendChild(historyItem);
+                    });
+                }
+
+                handleFileUpload(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const fileData = event.target.result;
+                        this.sendMessage(`Attached file: ${file.name}`, fileData);
+                    };
+                    reader.readAsDataURL(file);
                 }
             }
 
@@ -1491,6 +1650,7 @@ function ai_pa_analyze_portfolio(WP_REST_Request $request) {
     $model_name = 'meta-llama/llama-3.1-8b-instruct';
 
     $msg = sanitize_text_field($request['message']);
+    $file_data = $request['file'];
 
     error_log('AI Portfolio Analyzer Debug - API Key exists: ' . (!empty($api_key) ? 'Yes' : 'No'));
     error_log('AI Portfolio Analyzer Debug - Message: ' . $msg);
@@ -1498,19 +1658,26 @@ function ai_pa_analyze_portfolio(WP_REST_Request $request) {
     if (!$api_key) {
         return ['reply' => '❌ Error: API key not configured. Please check plugin settings in WordPress Admin.'];
     }
-    
+
     if (!$msg) {
         return ['reply' => '❌ Error: Message is required.'];
+    }
+
+    $user_content = $msg;
+    if ($file_data) {
+        // This is a simplified handling. In a real-world scenario, you'd
+        // save the file and provide a URL or process its content.
+        $user_content .= "\n\n[User has attached a file. You cannot see the file, but you can ask the user about its content.]";
     }
 
     $body = [
         "model" => $model_name,
         "messages" => [
             [
-                "role" => "system", 
-                "content" => "You are a professional financial analyst specializing in Pakistan Stock Exchange (PSX). Provide detailed, accurate, and actionable insights about Pakistani stocks, market trends, portfolio analysis, and investment strategies. Always consider local market conditions, regulatory environment, and economic factors affecting PSX. Format your responses clearly with bullet points when listing multiple items. Be concise but comprehensive. Use emojis appropriately to make responses engaging."
+                "role" => "system",
+                "content" => "Give me a human-style swing trading technical analysis report as a professional swing trader for [STOCK] listed on [Pakistan Stock Exchange] using the [DAILY] chart as of [DATE]. Assume TradingView is the charting platform. Include clear insights on:\n\n- Trend structure (short, medium, long term)\n- Key support and resistance zones\n- Candlestick behavior and price action\n- Chart patterns forming or confirming\n- Volume behavior and accumulation/distribution\n- Potential swing trade setups with entry, stop loss, and targets\n- Risk zones or invalidation points\n- Trader-style summary and outlook\n\nOnly use ₨ (PKR) as the currency symbol, not ₹ (INR)."
             ],
-            ["role" => "user", "content" => $msg]
+            ["role" => "user", "content" => $user_content]
         ],
         "max_tokens" => 1000,
         "temperature" => 0.7,
@@ -1534,7 +1701,7 @@ function ai_pa_analyze_portfolio(WP_REST_Request $request) {
 
     $http_code = wp_remote_retrieve_response_code($response);
     $response_body = wp_remote_retrieve_body($response);
-    
+
     error_log('AI Portfolio Analyzer Debug - HTTP Code: ' . $http_code);
 
     if ($http_code !== 200) {
@@ -1547,15 +1714,15 @@ function ai_pa_analyze_portfolio(WP_REST_Request $request) {
     }
 
     $data = json_decode($response_body, true);
-    
+
     if (isset($data['choices'][0]['message']['content'])) {
         return ['reply' => $data['choices'][0]['message']['content']];
     }
-    
+
     if (isset($data['error'])) {
         return ['reply' => '❌ AI Service Error: ' . $data['error']['message']];
     }
-    
+
     return ['reply' => '❌ Unexpected response format. Please try again.'];
 }
 
@@ -1565,11 +1732,11 @@ register_activation_hook(__FILE__, 'ai_portfolio_analyzer_activate');
 function ai_portfolio_analyzer_activate() {
     add_option('ai_pa_api_url', 'https://api.novita.ai/v3/openai');
     add_option('ai_pa_theme_color', '#10b981');
-    
+
     if (get_option('ai_pa_api_key') === false) {
         add_option('ai_pa_api_key', 'sk_pkPfR10Ibpy3SfYj02ROX6Zpm_O8M7YiRfUfGRuvpQU');
     }
-    
+
     flush_rewrite_rules();
 }
 
