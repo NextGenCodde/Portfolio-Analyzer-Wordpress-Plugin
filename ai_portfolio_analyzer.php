@@ -11,9 +11,9 @@ if (!defined('ABSPATH')) exit;
 // ----------- ENQUEUE SCRIPTS AND STYLES -----------
 add_action('wp_enqueue_scripts', function() {
     if (has_shortcode(get_post()->post_content ?? '', 'ai_portfolio_analyzer')) {
-        wp_enqueue_script('chart-js', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js', [], '3.9.1', true);
-        wp_enqueue_script('ai-pa-script', plugin_dir_url(__FILE__) . 'ai-portfolio-analyzer.js', ['jquery'], '3.0', true);
-        wp_localize_script('ai-pa-script', 'aiPA', [
+        // The ai-pa-script is not a separate file, so we don't need to enqueue it.
+        // We only need to localize the script to pass the ajax_url and nonce.
+        wp_localize_script('jquery', 'aiPA', [
             'ajax_url' => rest_url('ai-pa/v1/analyze'),
             'nonce' => wp_create_nonce('wp_rest')
         ]);
@@ -118,6 +118,7 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
 
     ob_start();
     ?>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1619,19 +1620,21 @@ add_shortcode('ai_portfolio_analyzer', function ($atts) {
             }
 
             // Initialize the Portfolio AI
-            window.portfolioAI = new PortfolioAI();
+            window.addEventListener('DOMContentLoaded', (event) => {
+                window.portfolioAI = new PortfolioAI();
 
-            // Add some welcome animations
-            setTimeout(() => {
-                const features = document.querySelectorAll('.feature-card');
-                features.forEach((feature, index) => {
-                    setTimeout(() => {
-                        feature.style.opacity = '0';
-                        feature.style.transform = 'translateY(20px)';
-                        feature.style.animation = 'slideUp 0.6s ease-out forwards';
-                    }, index * 100);
-                });
-            }, 500);
+                // Add some welcome animations
+                setTimeout(() => {
+                    const features = document.querySelectorAll('.feature-card');
+                    features.forEach((feature, index) => {
+                        setTimeout(() => {
+                            feature.style.opacity = '0';
+                            feature.style.transform = 'translateY(20px)';
+                            feature.style.animation = 'slideUp 0.6s ease-out forwards';
+                        }, index * 100);
+                    });
+                }, 500);
+            });
         });
     </script>
     <?php
